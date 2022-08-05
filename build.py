@@ -80,6 +80,7 @@ Sources*/
 JS Script
 """
 if __name__ == "__main__":
+    # Read and parse the script
     with open(sys.argv[1]) as in_script:
         imports_list = False
         import_builder = list()
@@ -99,6 +100,7 @@ if __name__ == "__main__":
             else:
                 script += line
 
+    # Patch the CSharp code to provide libraries to the user script
     func_list = ""
     lib_list = ""
     for ass in import_builder:
@@ -110,7 +112,7 @@ if __name__ == "__main__":
             lib_b64 = base64.b64encode(rf.read()).decode('ascii')
         lib_list += lib_tmp.replace("BASE64_ASSEMBLY", lib_b64)
 
-
+    # Write the cs file
     with open('out.cs', 'w') as prog:
         prog.write(prog_head_template)
         prog.write(run_assembly_template)
@@ -119,4 +121,5 @@ if __name__ == "__main__":
         prog.write(main_template.replace("<SCRIPT>", script.replace('"', '""')))
         prog.write(prog_tail_template)
 
-    print("mcs out.cs -r:Jint.dll")
+    print("[+] Compiler Instructions:")
+    print("\tmcs out.cs -r:Jint.dll")
