@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
+import argparse
+import pathlib
 import sys
+import os
 import base64
+import subprocess
+import shlex
 
 prog_head_template = """
 using Jint;
@@ -71,17 +76,29 @@ main_template = """
     }
 """
 
-"""
-SCRIPT FORMAT
-/*Sources
-rubeus = /path/to/rubeus
-seatbelt = /path/to/seatbelt
-Sources*/
-JS Script
-"""
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description='Build a .Net executable from a javascript script'
+    )
+    parser.add_argument(
+        '--out', '-o', help='Exe file to write', default='out.cs', type=pathlib.Path
+    )
+    parser.add_argument(
+        '--debug', '-d', help='Debug process', default=False, type=bool, nargs='?', const=True
+    )
+    parser.add_argument(
+        '--infile', '-i', help='JS file to parse', required=True
+    )
+    options =  parser.parse_args()
+    if os.path.exists(options.infile) is None:
+        print(f"[-] {options.infile} does not exist")
+        sys.exit()
+    return options
+
 if __name__ == "__main__":
-    # Read and parse the script
-    with open(sys.argv[1]) as in_script:
+    options = parse_args()
+
+    with open(options.infile) as in_script:
         imports_list = False
         import_builder = list()
         script = ""
@@ -100,20 +117,33 @@ if __name__ == "__main__":
             else:
                 script += line
 
+    if options.debug:
+        print(f"[D] /----------SCRIPT -------------/")
+        print(script)
+        print(f"[D] /----------SCRIPT -------------/")
     # Patch the CSharp code to provide libraries to the user script
     func_list = ""
     lib_list = ""
-    for ass in import_builder:
+    for assembly in import_builder:
         lib_tmp = ""
-        func_tmp = func_template.replace("ASSEMBLY_NAME_CAP", ass[0].capitalize())
-        func_list += func_tmp.replace("ASSEMBLY_NAME", ass[0])
-        lib_tmp += assembly_template.replace("ASSEMBLY_NAME_CAP", ass[0].capitalize())
-        with open(ass[1], 'rb') as rf:
-            lib_b64 = base64.b64encode(rf.read()).decode('ascii')
+        func_tmp = func_template.replace("ASSEMBLY_NAME_CAP", assembly[0].capitalize())
+        func_list += func_tmp.replace("ASSEMBLY_NAME", assembly[0])
+        lib_tmp += assembly_template.replace("ASSEMBLY_NAME_CAP", assembly[0].capitalize())
+        if os.path.exists(assembly[1]):
+            with open(assembly[1], 'rb') as rf:
+                lib_b64 = base64.b64encode(rf.read()).decode('ascii')
+        else:
+            print(f"[-] {assembly[0]}: {assembly[1]} not found!")
+            sys.exit()
+        if options.debug:
+            print(f"[D] Loaded assembly {assembly[0]} b64 length: {len(lib_b64)}")
         lib_list += lib_tmp.replace("BASE64_ASSEMBLY", lib_b64)
 
     # Write the cs file
-    with open('out.cs', 'w') as prog:
+    cs_file = pathlib.Path(f"{os.path.join(options.out.parent, options.out.stem)}.cs")
+    if options.debug:
+        print(f"[D] Writing {cs_file}")
+    with open(cs_file, 'w') as prog:
         prog.write(prog_head_template)
         prog.write(run_assembly_template)
         prog.write(lib_list)
@@ -122,4 +152,17 @@ if __name__ == "__main__":
         prog.write(prog_tail_template)
 
     print("[+] Compiler Instructions:")
-    print("\tmcs out.cs -r:Jint.dll")
+    compiler_cmd_line = f"mcs {cs_file} -r:Jint.dll"
+    print(f"\t{compiler_cmd_line}")
+    print("[+] Compiling")
+    compiler = subprocess.run(shlex.split(compiler_cmd_line))
+    if options.debug:
+        print(f"[D] Keeping {cs_file}")
+    else:
+        print(f"[+] Deleting {cs_file}")
+        cs_file.unlink()
+    if compiler.returncode == 0 and options.out.exists():
+        print(f"[+] Compiled to {options.out}")
+        print(f"[+] Success!!!!")
+    else:
+        print("[-] Errors in compilation")

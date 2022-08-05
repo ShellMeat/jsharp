@@ -20,4 +20,3 @@ Paths and definitions set in Sources header are added to the C# file as a base64
 
 # TODOs
 * Parse command line arguements so they are passed as a string array to the library
-* add command line args to the build.py
