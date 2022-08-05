@@ -1,5 +1,20 @@
-# jsharp
+# Jsharp
 Javascript to CSharp binary execution
+
+# Usage
+``` 
+usage: build.py [-h] [--out OUT] [--debug [DEBUG]] --infile INFILE
+
+Build a .Net executable from a javascript script
+
+options:
+  -h, --help            show this help message and exit
+  --out OUT, -o OUT     Exe file to write
+  --debug [DEBUG], -d [DEBUG]
+                        Debug process
+  --infile INFILE, -i INFILE
+                        JS file to parse
+```
 
 # Sample Script
 ``` javascript
