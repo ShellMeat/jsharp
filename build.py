@@ -208,5 +208,6 @@ if __name__ == "__main__":
     if options.out.exists():
         print(f"[+] Compiled to {options.out}")
         print("[!] Winning, compiled and merged")
+        print(f"[!] ASSEMBLY: {options.out}")
     else:
         print("[-] Errors in compilation")
