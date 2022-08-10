@@ -27,11 +27,15 @@ if (klist.indexOf("krbtgt") > 0) {
 }
 ```
 
+Javascript support to this standard: https://262.ecma-international.org/5.1/
+
 # Special Functions
-print - print to console
+print(str s) - print to console
+sleep(int n) - Sleep for n seconds
 
 # Assemblies
 Paths and definitions set in Sources header are added to the C# file as a base64 string and a function is created to call the assembly's entry point with with parameters. The console output of the command is returned as a string.
 
-# TODOs
-* Parse command line arguements so they are passed as a string array to the library
+# External References
+https://github.com/gluck/il-repack   -- Merge all Jint.dll into the exe for a single file deployment
+https://github.com/sebastienros/jint -- Using Version 2.11.58
