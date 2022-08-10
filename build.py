@@ -13,6 +13,7 @@ using System;
 using System.Text;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 
 class Program
 {
@@ -41,7 +42,28 @@ engine_template = """
 func_template = '.SetValue("ASSEMBLY_NAME", new Func<String, String>(ASSEMBLY_NAME_CAP))'
 
 run_assembly_template = """
+    [DllImport("shell32.dll", SetLastError = true)]
+    static extern IntPtr CommandLineToArgvW(
+        [MarshalAs(UnmanagedType.LPWStr)] string lpCmdLine, out int pNumArgs);
+
     static String runAssembly(String assemblyb64, String param) {
+        int argc;
+        var argv = CommandLineToArgvW(param, out argc);
+        if (argv == IntPtr.Zero)
+            throw new System.ComponentModel.Win32Exception();
+        var args = new string[argc];
+        try
+        {
+            for (var i = 0; i < args.Length; i++)
+            {
+                var p = Marshal.ReadIntPtr(argv, i * IntPtr.Size);
+                args[i] = Marshal.PtrToStringUni(p);
+            }
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(argv);
+        }
         byte[] lib_bytes = Convert.FromBase64String(assemblyb64);
         var assembly = Assembly.Load(lib_bytes);
         MethodInfo method = assembly.EntryPoint;
@@ -49,7 +71,7 @@ run_assembly_template = """
         Console.SetOut(sw);
         Console.SetError(sw);
 
-        object[] parameters = new[] { new System.String[] { param } };
+        object[] parameters = new[] { args };
         method.Invoke(null, parameters);
         Console.Out.Close();
         var sw1 = new StreamWriter(Console.OpenStandardOutput());
@@ -152,17 +174,31 @@ if __name__ == "__main__":
         prog.write(prog_tail_template)
 
     print("[+] Compiler Instructions:")
-    compiler_cmd_line = f"mcs {cs_file} -r:Jint.dll"
+    compiler_cmd_line = f"mcs {cs_file} -out:{cs_file}.exe -r:Jint.dll"
     print(f"\t{compiler_cmd_line}")
     print("[+] Compiling")
     compiler = subprocess.run(shlex.split(compiler_cmd_line))
+    if compiler.returncode != 0:
+        print(f"[-] Compiler failed, check error messages")
+        sys.exit()
     if options.debug:
         print(f"[D] Keeping {cs_file}")
     else:
         print(f"[+] Deleting {cs_file}")
         cs_file.unlink()
-    if compiler.returncode == 0 and options.out.exists():
+    merger_cmd_line = f"mono ILRepack.exe /out:{options.out} {cs_file}.exe Jint.dll"
+    merger = subprocess.run(shlex.split(merger_cmd_line))
+    if merger.returncode != 0:
+        print(f"[-] Compiler failed, check error messages")
+        sys.exit()
+    if options.debug:
+        print(f"[D] Keeping {cs_file}.exe")
+    else:
+        print(f"[+] Deleting {cs_file}.exe")
+        pathlib.Path(f"{cs_file}.exe").unlink()
+    if options.out.exists():
         print(f"[+] Compiled to {options.out}")
-        print(f"[+] Success!!!!")
+        print("[!] Winning, compiled and merged")
+        print(f"[!] ASSEMBLY: {options.out}")
     else:
         print("[-] Errors in compilation")

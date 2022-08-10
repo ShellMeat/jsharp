@@ -33,5 +33,6 @@ print - print to console
 # Assemblies
 Paths and definitions set in Sources header are added to the C# file as a base64 string and a function is created to call the assembly's entry point with with parameters. The console output of the command is returned as a string.
 
-# TODOs
-* Parse command line arguements so they are passed as a string array to the library
+# External References
+https://github.com/gluck/il-repack -- merge all Jint.dll into the exe for a single file deployment
+https://github.com/sebastienros/jint
